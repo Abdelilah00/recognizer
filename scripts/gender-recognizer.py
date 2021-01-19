@@ -6,10 +6,10 @@ import os
 import cvlib as cv
 
 # load model
-model = load_model('../datasets-gender/gender.model')
+model = load_model('../models/gender.model')
 
 # open webcam
-webcam = cv2.VideoCapture('../src/Anne2.mp4')
+webcam = cv2.VideoCapture('../src/ben.mp4')
 
 classes = ['man', 'woman']
 

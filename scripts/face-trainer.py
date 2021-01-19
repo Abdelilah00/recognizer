@@ -1,43 +1,115 @@
-import os
-import pickle
-
-from PIL import Image
+from keras.layers import Input, Lambda, Dense, Flatten, GlobalAveragePooling2D
+from keras.models import Model
+from keras.applications.vgg19 import VGG19
+from keras.applications.vgg16 import preprocess_input
+from keras.preprocessing import image
+from keras.preprocessing.image import ImageDataGenerator
+from keras.models import Sequential
 import numpy as np
-import cv2
+from glob import glob
+import matplotlib.pyplot as plt
+import tensorflow as tf
+from keras.models import load_model
+# re-size all the images to this
+from tensorboard.program import TensorBoard
+from tensorflow.python.keras.applications.vgg16 import VGG16
+from tensorflow.python.keras.callbacks import ModelCheckpoint, EarlyStopping
+from keras.preprocessing.image import ImageDataGenerator
+from tensorflow.python.keras.optimizer_v2.rmsprop import RMSprop
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-image_dir = os.path.join(BASE_DIR, '../datasets/face')
 
-y_labels = []
-x_train = []
-current_id = 0
-label_ids = {}
+def Fc(bottom_model, num_classes):
+    top_model = bottom_model.output
+    top_model = GlobalAveragePooling2D()(top_model)
+    top_model = Dense(1024, activation='relu')(top_model)
+    top_model = Dense(1024, activation='relu')(top_model)
+    top_model = Dense(512, activation='relu')(top_model)
+    top_model = Dense(num_classes, activation='softmax')(top_model)
+    return top_model
 
-recognizer = cv2.face.LBPHFaceRecognizer_create()
 
-for root, dirs, files in os.walk(image_dir):
-    for file in files:
-        if file.endswith('jpg'):
-            path = os.path.join(root, file)
-            label = os.path.basename(os.path.dirname(path)).replace(" ", "_").lower()
+IMAGE_SIZE = [224, 224]
+batch_size = 32
+train_path = '../Datasets/face/train'
+valid_path = '../Datasets/face/val'
+# useful for getting number of classes
+folders = glob('../Datasets/face/train/*')
 
-            pil_image = Image.open(path).convert("L")
-            image_array = np.array(pil_image, 'uint8')
+# add preprocessing layer to the front of VGG
+vgg = VGG16(input_shape=IMAGE_SIZE + [3], weights='imagenet', include_top=False)
 
-            if not label in label_ids:
-                label_ids[label] = current_id
-                current_id += 1
+# don't train existing weights
+for layer in vgg.layers:
+    layer.trainable = False
 
-            id_ = label_ids[label]
+# our layers - you can add more if you want
+FC_Head = Fc(vgg, len(folders))
 
-            y_labels.append(id_)
-            x_train.append(image_array)
+# x = Dense(1000, activation='relu')(x)
+# create a model object
+model = Model(inputs=vgg.input, outputs=FC_Head)
+# view the structure of the model
+model.summary()
 
-recognizer.train(x_train, np.array(y_labels))
-recognizer.save(image_dir + '\\trainer-faces.yml')
+train_datagen = ImageDataGenerator(rescale=1. / 255,
+                                   rotation_range=45,
+                                   width_shift_range=0.3,
+                                   height_shift_range=0.3,
+                                   shear_range=0.2,
+                                   zoom_range=0.2,
+                                   horizontal_flip=True)
 
-for label in y_labels:
-    label_ids[label] = y_labels.index(label)
+test_datagen = ImageDataGenerator(rescale=1. / 255)
 
-with open(image_dir + '\\labels-faces.pickle', "wb") as f:
-    pickle.dump(label_ids, f)
+training_set = train_datagen.flow_from_directory('../Datasets/face/train',
+                                                 target_size=IMAGE_SIZE,
+                                                 batch_size=batch_size,
+                                                 class_mode='categorical')
+
+test_set = test_datagen.flow_from_directory('../Datasets/face/val',
+                                            target_size=IMAGE_SIZE,
+                                            batch_size=batch_size,
+                                            class_mode='categorical')
+
+'''r=model.fit_generator(training_set,
+                         samples_per_epoch = 8000,
+                         nb_epoch = 5,
+                         validation_data = test_set,
+                         nb_val_samples = 2000)'''
+
+# fit the model
+early_stop = EarlyStopping(monitor='val_loss', min_delta=0, patience=10, verbose=1, restore_best_weights=True)
+check_point = ModelCheckpoint(r"..\models\{}".format('face_low_val_loss.h5'), monitor='val_loss', mode='min',
+                              save_best_only=True, verbose=1)
+
+callbacks = [early_stop, check_point]
+
+model.compile(
+    loss='categorical_crossentropy',
+    optimizer='adam',
+    metrics=['accuracy']
+)
+
+history = model.fit(
+    training_set,
+    steps_per_epoch=len(training_set),
+    epochs=50,
+    validation_data=test_set,
+    validation_steps=len(test_set),
+    callbacks=callbacks)
+
+# model.save(r"..\models\{}".format('face_model_finale.h5'))
+
+# loss
+"""plt.plot(r.history['loss'], label='train loss')
+plt.plot(r.history['val_loss'], label='val loss')
+plt.legend()
+plt.show()
+plt.savefig('LossVal_loss')
+
+# accuracies
+plt.plot(r.history['acc'], label='train acc')
+plt.plot(r.history['val_acc'], label='val acc')
+plt.legend()
+plt.show()
+plt.savefig('AccVal_acc')"""
