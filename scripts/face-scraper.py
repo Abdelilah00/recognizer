@@ -4,12 +4,13 @@ import cv2
 import face_recognition
 import numpy as np
 
-name = 'anne2'
+name = 'yuyi'
 path = '../datasets/face/train/' + name + '/'
 os.mkdir(path)
 
 cap = cv2.VideoCapture('../src/' + name + '.mp4')
-
+cap.set(3, 720)
+cap.set(4, 1080)
 scale = 0.20
 scaleV = 5
 i = 0

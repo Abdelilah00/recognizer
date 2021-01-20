@@ -29,7 +29,7 @@ def Fc(bottom_model, num_classes):
 
 
 IMAGE_SIZE = [224, 224]
-batch_size = 32
+batch_size = 64
 train_path = '../Datasets/face/train'
 valid_path = '../Datasets/face/val'
 # useful for getting number of classes

@@ -16,11 +16,10 @@ model = load_model('../models/face_low_val_loss.h5')
 model_gender = load_model('../models/gender.model')
 
 classes_gender = ['WOMAN', 'MAN']
-classes_face = ['Anne', 'Ben', 'Billie', 'Jack']
+classes_face = ['abdel', 'houria', 'yuyi', 'Selena']
 
 # Loading the cascades
-face_cascade = cv2.CascadeClassifier('../models/haarcascade_frontalface_default.xml')
-video_capture = cv2.VideoCapture('../src/anne.mp4')
+video_capture = cv2.VideoCapture('../src/yuyi.mp4')
 
 scale = 0.20
 scaleV = 5
@@ -49,16 +48,18 @@ while True:
 
         pred = model.predict(img_array, 1, verbose=0)
         conf, index = np.max(pred, axis=1), np.argmax(pred, axis=1)
-        rounded = str(np.round(conf * 100, 2))
+        rounded = np.round(conf * 100, 2)
 
         print(pred)
 
-        if conf > 0.55:
-            name = rounded + ' ' + str(classes_face[int(index)])
+        if rounded > 75:
+            name = str(rounded) + ' ' + str(classes_face[int(index)])
         else:
-            name = rounded + 'Unknown'
+            name = str(rounded)
 
-        cv2.putText(frame, name, (50, 50), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 2)
+        y1, x2, y2, x1 = y1 * scaleV, x2 * scaleV, y2 * scaleV, x1 * scaleV
+        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 150), 2)
+        cv2.putText(frame, name, (x1, y1 - 10), cv2.LINE_4, 1, (0, 255, 255), 2)
 
         # preprocessing for gender detection model
         """face_crop = cv2.resize(face, (96, 96))
